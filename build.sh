@@ -17,7 +17,7 @@ if [[ -z "$FEDORA_VERSION" || "$FEDORA_VERSION" == "%fedora" ]]; then
     exit 1
 fi
 
-export BUFFYBOX_REPO="${BUFFYBOX_REPO:-https://gitlab.postmarketos.org/postmarketOS/buffybox.git}"
+export BUFFYBOX_REPO="${BUFFYBOX_REPO:-https://gitlab.nura.eco/postmarketOS/buffybox.git}"
 export BUFFYBOX_REF="${BUFFYBOX_REF:-}"
 
 ENGINE="${ENGINE:-$(command -v podman || command -v docker || true)}"

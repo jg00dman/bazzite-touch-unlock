@@ -5,12 +5,12 @@
 set -euo pipefail
 
 SRC="${SRC:-/src}"
-BUFFYBOX_REPO="${BUFFYBOX_REPO:-https://gitlab.postmarketos.org/postmarketOS/buffybox.git}"
+BUFFYBOX_REPO="${BUFFYBOX_REPO:-https://gitlab.nura.eco/postmarketOS/buffybox.git}"
 BUFFYBOX_REF="${BUFFYBOX_REF:-}"
 
 dnf -y install \
     git rpm-build tar gzip meson ninja-build gcc pkgconf-pkg-config \
-    libinput-devel libxkbcommon-devel systemd-devel inih-devel \
+    libinput-devel libxkbcommon-devel systemd systemd-devel inih-devel \
     libdrm-devel scdoc
 
 work="$(mktemp -d)"

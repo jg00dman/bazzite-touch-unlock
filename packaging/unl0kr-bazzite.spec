@@ -21,6 +21,7 @@ BuildRequires:  pkgconfig(libudev)
 BuildRequires:  pkgconfig(inih)
 BuildRequires:  pkgconfig(libdrm)
 BuildRequires:  pkgconfig(systemd)
+BuildRequires:  systemd
 Requires:       dracut
 Requires:       xkeyboard-config
 
