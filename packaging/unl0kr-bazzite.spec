@@ -61,9 +61,11 @@ find %{buildroot} -name 'unl0kr-agent' -type f | grep -q . \
     || { echo "unl0kr-agent was not built/installed" >&2; exit 1; }
 
 # Build the file list from whatever upstream installed, so upstream path
-# changes don't break packaging. Files under /etc become config files.
+# changes don't break packaging. Files under /etc become config files;
+# man pages get a glob because rpmbuild compresses them afterwards.
 ( cd %{buildroot} && find . \( -type f -o -type l \) | sed 's|^\.||' | sort ) \
-    | sed -E 's|^(/etc/.*)$|%config(noreplace) \1|' > %{_builddir}/unl0kr-files.list
+    | sed -E -e 's|^(/etc/.*)$|%config(noreplace) \1|' \
+             -e 's|^(/usr/share/man/.*)$|\1*|' > %{_builddir}/unl0kr-files.list
 
 %files -f %{_builddir}/unl0kr-files.list
 %license COPYING
