@@ -86,9 +86,12 @@ time. Updates take a few minutes longer because of that rebuild.
   you, from Gaming Mode (Steam menu, Settings, System, Check for updates) or
   with `ujust update` in Konsole. Desktop Bazzite images update automatically
   and apply on the next reboot.
-- **Update at home**, where your USB keyboard is, and reboot straight after,
-  undocked, to check the touch unlock still appears. Then `./status.sh`
-  confirms everything is still in place.
+- **Before rebooting into an update, run `./status.sh`.** It checks the
+  staged update kept the package and will rebuild the boot image. If it
+  says it would not keep touch unlock, don't reboot away from a keyboard.
+- **Ideally update at home**, where your USB keyboard is, and reboot straight
+  after, undocked, to check the touch unlock appears. Run `./status.sh` again
+  after the reboot to confirm.
 - **When it works,** pin the new system (`sudo ostree admin pin 0`) and unpin
   older ones you no longer need. `rpm-ostree status` lists them;
   `sudo ostree admin pin --unpin N` unpins entry N.

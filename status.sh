@@ -42,12 +42,26 @@ echo
 rpm-ostree status | grep -E '^[ ●]+ostree|Version:|Pinned:|LocalPackages:' \
     | sed -E 's/^ *● */* booted: /; s/^ +ostree/  other:  ostree/'
 
-if rpm-ostree status --pending-exit-77 >/dev/null 2>&1; then
-    :
-elif [[ $? -eq 77 ]]; then
+# Check a staged update (applies on next reboot) before you reboot into it.
+staged="$(rpm-ostree status --json | python3 -c '
+import json, sys
+for d in json.load(sys.stdin)["deployments"]:
+    if d.get("staged"):
+        pkgs = " ".join(d.get("requested-local-packages", []))
+        print(d.get("version", "?"), "yes" if "unl0kr-bazzite" in pkgs else "no",
+              "yes" if d.get("regenerate-initramfs") else "no")
+        break')"
+if [[ -n "$staged" ]]; then
+    read -r s_ver s_pkg s_regen <<< "$staged"
     echo
-    echo "An update is staged and will apply on the next reboot."
-    echo "Reboot undocked, with your USB keyboard or pinned entry as fallback."
+    echo "Update $s_ver is staged and applies on the next reboot."
+    if [[ "$s_pkg" == yes && "$s_regen" == yes ]]; then
+        echo "  It keeps touch unlock (package carried over, boot image rebuilt)."
+    else
+        echo "  ! It would NOT keep touch unlock (package: $s_pkg, boot image rebuild: $s_regen)."
+        echo "    Don't reboot away from a keyboard. Discard it with: sudo rpm-ostree cleanup -p"
+        ok=0
+    fi
 fi
 
 echo
