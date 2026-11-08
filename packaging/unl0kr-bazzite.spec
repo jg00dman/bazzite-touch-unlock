@@ -4,7 +4,7 @@
 
 Name:           unl0kr-bazzite
 Version:        %{upstream_version}
-Release:        1%{?dist}
+Release:        1%{?release_tag:.%{release_tag}}%{?dist}
 Summary:        On-screen keyboard disk unlocker (unl0kr) with dracut integration
 License:        GPL-3.0-or-later
 URL:            https://gitlab.postmarketos.org/postmarketOS/buffybox

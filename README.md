@@ -5,9 +5,12 @@ keyboard**: an on-screen keyboard you can use by touch, or with the Deck's
 right trackpad as a pointer.
 
 This repo writes no unlock code of its own. It packages
-[unl0kr](https://gitlab.postmarketos.org/postmarketOS/buffybox) from the
-postmarketOS BuffyBox project, **unmodified**, and wires it into Bazzite's
-initramfs in place of the Plymouth password prompt.
+[unl0kr](https://gitlab.nura.eco/postmarketOS/buffybox) from the BuffyBox
+project (postmarketOS, now Nura) and wires it into Bazzite's initramfs in place
+of the Plymouth password prompt. By default it applies four small downstream
+patches by erdii for screen and trackpad orientation on the Deck; see
+[patches/](patches/README.md). These are not submitted upstream. Build with
+`PATCHES=0 ./build.sh` for unmodified upstream.
 
 > **Status: proof of concept, not yet tested on hardware.** Read the whole
 > README and keep a USB keyboard nearby the first time.
@@ -71,13 +74,11 @@ Defaults are in `conf/50-handheld.conf`.
 
 These are what hardware testing needs to answer:
 
-- orientation: the Deck panel is natively portrait and unl0kr 3.6.0 has no
-  rotation option for its DRM backend (the only one Bazzite's kernel supports),
-  so expect a portrait screen; touch should still line up;
+- whether the orientation patches rotate the screen, touch and trackpad
+  correctly on real hardware (unpatched: portrait screen, touch fine,
+  trackpad axes wrong);
 - unl0kr opens the first `/dev/dri/card*` it finds, which may not be the
   amdgpu card early in boot;
-- whether upstream detects the Deck controller (a combined keyboard + touchpad
-  device) correctly;
 - whether the d-pad moves around the on-screen keyboard (touch and trackpad
   are the controls this setup relies on; unl0kr isn't patched either way);
 - that the dracut module finds unl0kr's agent and units where the upstream
@@ -91,8 +92,9 @@ makes updates a little slower.
 
 ## Licensing and credits
 
-- unl0kr / BuffyBox: GPL-3.0-or-later, by the postmarketOS BuffyBox
-  contributors. This repo downloads and builds it; it does not modify it.
+- unl0kr / BuffyBox: GPL-3.0-or-later, by the BuffyBox contributors. This
+  repo downloads and builds it, applying the downstream patches credited in
+  [patches/README.md](patches/README.md).
 - The scripts in this repo were written with AI assistance (Claude) and
   reviewed by the maintainer. **No AI-generated contributions have been or
   will be sent to postmarketOS**, which forbids them; this project only

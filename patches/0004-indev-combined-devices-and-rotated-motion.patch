@@ -1,0 +1,167 @@
+From 31190030cd29e3e3aab0c9dc8140b6578e0f4b35 Mon Sep 17 00:00:00 2001
+From: erdii <claude@erdii.net>
+Date: Tue, 13 Oct 2026 18:41:20 +0200
+Subject: [PATCH] fix(indev): prefer keyboards for combined devices; rotate
+ relative motion
+
+Combined devices such as the Logitech K400 Plus (keyboard with touchpad)
+carry ID_INPUT_KEYBOARD and ID_INPUT_MOUSE. The last property seen won, so
+such a keyboard could be classified as a mouse, got no xkb state and only
+special keys (Backspace, Enter, ...) worked. Rank the types instead, with
+keyboards first, and give keyboards with a pointer a cursor like mice.
+
+Relative pointer motion was added to the unrotated point, so on a rotated
+display the mouse axes were swapped. Rotate the motion into the panel's
+coordinate system first.
+---
+ shared/indev.c | 79 +++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 62 insertions(+), 17 deletions(-)
+
+diff --git a/shared/indev.c b/shared/indev.c
+index ebf3c5f..686478c 100644
+--- a/shared/indev.c
++++ b/shared/indev.c
+@@ -132,6 +132,13 @@ static void read_pointer(lv_indev_t * indev, lv_indev_data_t * data) {
+ static enum input_device_type identify_input_device(struct udev_device* device) {
+     bool is_input = false;
+     enum input_device_type ret = BBX_INDEV_OTHER;
++    /* Combined devices (e.g. keyboards with a touchpad) carry several ID_INPUT_*
++     * properties in no particular order; a keyboard needs its xkb state most. */
++    static const enum input_device_type priority[] = {
++        BBX_INDEV_OTHER, BBX_INDEV_KEY, BBX_INDEV_MOUSE, BBX_INDEV_TOUCHPAD,
++        BBX_INDEV_TOUCHSCREEN, BBX_INDEV_KEYBOARD
++    };
++    size_t rank = 0;
+ 
+     struct udev_list_entry *entry;
+     struct udev_list_entry *properties = udev_device_get_properties_list_entry(device);
+@@ -139,18 +146,28 @@ static enum input_device_type identify_input_device(struct udev_device* device)
+         const char* name = udev_list_entry_get_name(entry);
+         const char* value = udev_list_entry_get_value(entry);
+ 
++        enum input_device_type type = BBX_INDEV_OTHER;
++
+         if (strcmp(name, "ID_INPUT") == 0 && strcmp(value, "1") == 0)
+             is_input = true;
+         else if (strcmp(name, "ID_INPUT_KEY") == 0 && strcmp(value, "1") == 0)
+-            ret = BBX_INDEV_KEY;
++            type = BBX_INDEV_KEY;
+         else if (strcmp(name, "ID_INPUT_KEYBOARD") == 0 && strcmp(value, "1") == 0)
+-            ret = BBX_INDEV_KEYBOARD;
++            type = BBX_INDEV_KEYBOARD;
+         else if (strcmp(name, "ID_INPUT_MOUSE") == 0 && strcmp(value, "1") == 0)
+-            ret = BBX_INDEV_MOUSE;
++            type = BBX_INDEV_MOUSE;
+         else if (strcmp(name, "ID_INPUT_TOUCHPAD") == 0 && strcmp(value, "1") == 0)
+-            ret = BBX_INDEV_TOUCHPAD;
++            type = BBX_INDEV_TOUCHPAD;
+         else if (strcmp(name, "ID_INPUT_TOUCHSCREEN") == 0 && strcmp(value, "1") == 0)
+-            ret = BBX_INDEV_TOUCHSCREEN;
++            type = BBX_INDEV_TOUCHSCREEN;
++
++        for (size_t i = rank + 1; i < sizeof(priority) / sizeof(priority[0]); i++) {
++            if (priority[i] == type) {
++                rank = i;
++                ret = type;
++                break;
++            }
++        }
+     }
+ 
+     if (!is_input) {
+@@ -161,6 +178,13 @@ static enum input_device_type identify_input_device(struct udev_device* device)
+     return ret;
+ }
+ 
++/* Keyboards with a built-in pointer (e.g. a touchpad) are classified as
++ * keyboards but need a cursor like mice */
++static bool has_cursor(const struct input_device_ext* ext, struct libinput_device* device) {
++    return ext->type == BBX_INDEV_MOUSE || ext->type == BBX_INDEV_TOUCHPAD ||
++        (ext->type == BBX_INDEV_KEYBOARD && libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_POINTER));
++}
++
+ static void add_device_extension(struct libinput_device* device) {
+     enum input_device_type type = (enum input_device_type) libinput_device_get_user_data(device);
+     libinput_device_set_user_data(device, NULL);
+@@ -275,7 +299,7 @@ static void add_device_extension(struct libinput_device* device) {
+             lv_indev_set_read_cb(ext->pointer2, read_pointer);
+         }
+ 
+-        if (ext->type == BBX_INDEV_MOUSE || ext->type == BBX_INDEV_TOUCHPAD) {
++        if (has_cursor(ext, device)) {
+             lv_indev_read(ext->pointer1);
+             lv_indev_set_cursor(ext->pointer1, mouse_cursor);
+         }
+@@ -296,12 +320,11 @@ static void add_device_extension(struct libinput_device* device) {
+ #ifndef BBX_APP_BUFFYBOARD
+     if (ext->type == BBX_INDEV_KEYBOARD)
+         num_keyboards++;
+-    else
+ #endif
+-    if (ext->type == BBX_INDEV_MOUSE)
+-        num_mouses++;
+-    else if (ext->type == BBX_INDEV_TOUCHPAD)
++    if (ext->type == BBX_INDEV_TOUCHPAD)
+         num_touchpads++;
++    else if (has_cursor(ext, device))
++        num_mouses++;
+     if (num_mouses != 0 || num_touchpads != 0)
+         lv_obj_remove_flag(mouse_cursor, LV_OBJ_FLAG_HIDDEN);
+ 
+@@ -372,14 +395,14 @@ static void on_input_event() {
+             if (ext->type == BBX_INDEV_KEYBOARD) {
+                 assert(num_keyboards > 0);
+                 num_keyboards--;
+-            } else
++            }
+ #endif
+-            if (ext->type == BBX_INDEV_MOUSE) {
+-                assert(num_mouses > 0);
+-                num_mouses--;
+-            } else if (ext->type == BBX_INDEV_TOUCHPAD) {
++            if (ext->type == BBX_INDEV_TOUCHPAD) {
+                 assert(num_touchpads > 0);
+                 num_touchpads--;
++            } else if (has_cursor(ext, device)) {
++                assert(num_mouses > 0);
++                num_mouses--;
+             }
+             if (num_mouses == 0 && num_touchpads == 0)
+                 lv_obj_add_flag(mouse_cursor, LV_OBJ_FLAG_HIDDEN);
+@@ -483,9 +506,31 @@ static void on_input_event() {
+             struct indev_ext *data = lv_indev_get_user_data(ext->pointer1);
+             lv_display_t* display = lv_indev_get_display(ext->pointer1);
+ 
+-            int32_t x = data->point.x + (int32_t) libinput_event_pointer_get_dx(pointer_event);
++            /* The motion is meant on screen, but the point is kept unrotated
++             * because LVGL rotates it with the display */
++            double dx = libinput_event_pointer_get_dx(pointer_event);
++            double dy = libinput_event_pointer_get_dy(pointer_event);
++            double t = dx;
++            switch (lv_display_get_rotation(display)) {
++            case LV_DISPLAY_ROTATION_90:
++                dx = dy;
++                dy = -t;
++                break;
++            case LV_DISPLAY_ROTATION_180:
++                dx = -dx;
++                dy = -dy;
++                break;
++            case LV_DISPLAY_ROTATION_270:
++                dx = -dy;
++                dy = t;
++                break;
++            default:
++                break;
++            }
++
++            int32_t x = data->point.x + (int32_t) dx;
+             data->point.x = LV_CLAMP(0, x, display->hor_res - 1);
+-            int32_t y = data->point.y + (int32_t) libinput_event_pointer_get_dy(pointer_event);
++            int32_t y = data->point.y + (int32_t) dy;
+             data->point.y = LV_CLAMP(0, y, display->ver_res - 1);
+ 
+             lv_indev_read(ext->pointer1);
+-- 
+2.55.0
+

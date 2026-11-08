@@ -27,8 +27,9 @@ TPM one, which layers unl0kr and a dracut module and disables Plymouth.
 
 ### Proof of concept
 
-[link to repo] packages upstream unl0kr unmodified with a dracut module and
-setup/uninstall scripts for rpm-ostree.
+[link to repo] packages upstream unl0kr with a dracut module and
+setup/uninstall scripts for rpm-ostree. It optionally carries erdii's
+downstream orientation patches for the Deck's sideways panel.
 
 Tested on: [device, Bazzite version, image]
 - Touch input: [works / doesn't]

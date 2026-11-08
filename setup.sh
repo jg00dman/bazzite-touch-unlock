@@ -86,7 +86,11 @@ omit_dracutmodules+=" plymouth "
 EOF
 
 echo "==> Layering $(basename "$rpm_file")"
-rpm-ostree install --idempotent "$rpm_file"
+if rpm-ostree status --booted | grep -q 'unl0kr-bazzite'; then
+    rpm-ostree uninstall unl0kr-bazzite --install "$rpm_file"
+else
+    rpm-ostree install --idempotent "$rpm_file"
+fi
 
 echo "==> Enabling local initramfs regeneration"
 if [[ "$initramfs_was_enabled" != "yes" ]]; then

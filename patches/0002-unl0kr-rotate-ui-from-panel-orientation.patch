@@ -1,0 +1,212 @@
+From 3bbf5a6becdb19dbb9c3c6a1104d7130b9618a95 Mon Sep 17 00:00:00 2001
+From: erdii <claude@erdii.net>
+Date: Mon, 12 Oct 2026 20:50:13 +0200
+Subject: [PATCH] feat(unl0kr): rotate the UI according to the panel
+ orientation
+
+On panels mounted sideways (e.g. Steam Deck) the DRM connector carries a
+"panel orientation" property. With the fbdev and DRM backends, which can
+rotate in software, read it and rotate the UI accordingly (addresses #14).
+
+fbcon derives its rotation from the same property, but only once it has
+taken over the console, which is deferred on quiet boots, so it is only
+used as a fallback (as buffyboard does since !60).
+
+The DRM backend needs LVGL's DRM driver to support software rotation.
+---
+ shared/display.c | 40 ++++++++++++++++++++++
+ shared/display.h |  9 +++++
+ unl0kr/main.c    | 87 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 136 insertions(+)
+
+diff --git a/shared/display.c b/shared/display.c
+index df855e8..ef2758f 100644
+--- a/shared/display.c
++++ b/shared/display.c
+@@ -6,6 +6,7 @@
+ #include "display.h"
+ #include "log.h"
+ 
++#include <fcntl.h>
+ #include <stdio.h>
+ #include <stdbool.h>
+ #include <unistd.h>
+@@ -101,3 +102,42 @@ lv_display_t *bbx_display_create(bbx_backends_backend_id_t backend_id, bbx_displ
+ 
+     return disp;
+ }
++
++lv_display_rotation_t bbx_display_get_fbcon_rotation(void) {
++    lv_display_rotation_t rotation = LV_DISPLAY_ROTATION_0;
++
++    int fd = open("/sys/class/graphics/fbcon/rotate", O_RDONLY);
++    if (fd < 0) {
++        bbx_log(BBX_LOG_LEVEL_WARNING, "Can not open /sys/class/graphics/fbcon/rotate");
++        return rotation;
++    }
++
++    char buffer[3];
++    int size = read(fd, buffer, sizeof(buffer));
++    close(fd);
++    if (size != 2 || buffer[1] != '\n') {
++        bbx_log(BBX_LOG_LEVEL_WARNING, "Unexpected value of /sys/class/graphics/fbcon/rotate");
++        return rotation;
++    }
++
++    /* fbcon counts clockwise, LVGL counts counterclockwise */
++    switch (buffer[0]) {
++    case '0':
++        rotation = LV_DISPLAY_ROTATION_0;
++        break;
++    case '1':
++        rotation = LV_DISPLAY_ROTATION_270;
++        break;
++    case '2':
++        rotation = LV_DISPLAY_ROTATION_180;
++        break;
++    case '3':
++        rotation = LV_DISPLAY_ROTATION_90;
++        break;
++    default:
++        bbx_log(BBX_LOG_LEVEL_WARNING, "Unexpected value of /sys/class/graphics/fbcon/rotate");
++        break;
++    }
++
++    return rotation;
++}
+diff --git a/shared/display.h b/shared/display.h
+index 95746e3..893575b 100644
+--- a/shared/display.h
++++ b/shared/display.h
+@@ -34,4 +34,13 @@ typedef struct {
+  */
+ lv_display_t *bbx_display_create(bbx_backends_backend_id_t backend_id, bbx_display_config_t *config);
+ 
++/**
++ * Get the display rotation that matches the kernel's console rotation
++ * (/sys/class/graphics/fbcon/rotate). DRM drivers derive it from the panel
++ * orientation, so this corrects the UI on panels mounted sideways.
++ *
++ * @return rotation, or LV_DISPLAY_ROTATION_0 if it cannot be determined
++ */
++lv_display_rotation_t bbx_display_get_fbcon_rotation(void);
++
+ #endif /* BBX_DISPLAY_H */
+diff --git a/unl0kr/main.c b/unl0kr/main.c
+index 44f2235..50495fa 100644
+--- a/unl0kr/main.c
++++ b/unl0kr/main.c
+@@ -22,9 +22,15 @@
+ 
+ #include "lvgl/lvgl.h"
+ 
++#if LV_USE_LINUX_DRM
++#include <xf86drm.h>
++#include <xf86drmMode.h>
++#endif
++
+ #include <sys/epoll.h>
+ #include <sys/reboot.h>
+ #include <errno.h>
++#include <fcntl.h>
+ #include <signal.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -399,6 +405,71 @@ static void exit_failure() {
+  * Main
+  */
+ 
++#if LV_USE_LINUX_DRM
++/**
++ * Get the UI rotation from the "panel orientation" property of a connected DRM
++ * connector. fbcon only reflects it once it has taken over the console, which
++ * is deferred on quiet boots.
++ *
++ * @param rotation pointer for writing the rotation into
++ * @return true if a connector with a panel orientation was found
++ */
++static bool get_panel_rotation(lv_display_rotation_t *rotation) {
++    bool found = false;
++
++    for (int i = 0; i < 9 && !found; i++) {
++        char path[16];
++        snprintf(path, sizeof(path), "/dev/dri/card%d", i);
++        int fd = open(path, O_RDWR | O_CLOEXEC);
++        if (fd < 0) {
++            continue;
++        }
++
++        drmModeRes *res = drmModeGetResources(fd);
++        for (int c = 0; res && c < res->count_connectors && !found; c++) {
++            drmModeConnector *conn = drmModeGetConnector(fd, res->connectors[c]);
++            if (!conn) {
++                continue;
++            }
++            drmModeObjectProperties *props = conn->connection == DRM_MODE_CONNECTED
++                ? drmModeObjectGetProperties(fd, conn->connector_id, DRM_MODE_OBJECT_CONNECTOR)
++                : NULL;
++            for (uint32_t p = 0; props && p < props->count_props && !found; p++) {
++                drmModePropertyRes *prop = drmModeGetProperty(fd, props->props[p]);
++                if (!prop) {
++                    continue;
++                }
++                for (int e = 0; strcmp(prop->name, "panel orientation") == 0 && e < prop->count_enums; e++) {
++                    if (prop->enums[e].value != props->prop_values[p]) {
++                        continue;
++                    }
++                    const char *name = prop->enums[e].name;
++                    bbx_log(BBX_LOG_LEVEL_VERBOSE, "%s: panel orientation \"%s\"", path, name);
++                    found = true;
++                    /* Same mapping as the kernel's fbcon rotation hint, in LVGL's counterclockwise terms */
++                    if (strcmp(name, "Upside Down") == 0) {
++                        *rotation = LV_DISPLAY_ROTATION_180;
++                    } else if (strcmp(name, "Left Side Up") == 0) {
++                        *rotation = LV_DISPLAY_ROTATION_90;
++                    } else if (strcmp(name, "Right Side Up") == 0) {
++                        *rotation = LV_DISPLAY_ROTATION_270;
++                    } else {
++                        *rotation = LV_DISPLAY_ROTATION_0;
++                    }
++                }
++                drmModeFreeProperty(prop);
++            }
++            drmModeFreeObjectProperties(props);
++            drmModeFreeConnector(conn);
++        }
++        drmModeFreeResources(res);
++        close(fd);
++    }
++
++    return found;
++}
++#endif
++
+ int main(int argc, char *argv[]) {
+     /* Parse command line options */
+     ul_cli_parse_opts(argc, argv, &cli_opts);
+@@ -447,6 +518,22 @@ int main(int argc, char *argv[]) {
+         exit_failure();
+     }
+ 
++#if LV_USE_LINUX_FBDEV || LV_USE_LINUX_DRM
++    /* Only the fbdev and DRM drivers rotate in software */
++    if (conf_opts.general.backend != BBX_BACKENDS_BACKEND_NONE
++#if LV_USE_SDL
++        && conf_opts.general.backend != BBX_BACKENDS_BACKEND_SDL
++#endif
++    ) {
++        lv_display_rotation_t rotation;
++#if LV_USE_LINUX_DRM
++        if (!get_panel_rotation(&rotation))
++#endif
++            rotation = bbx_display_get_fbcon_rotation();
++        lv_display_set_rotation(disp, rotation);
++    }
++#endif
++
+     int fd_epoll = epoll_create1(EPOLL_CLOEXEC);
+     if (fd_epoll == -1) {
+         bbx_log(BBX_LOG_LEVEL_ERROR, "epoll_create1() is failed");
+-- 
+2.55.0
+

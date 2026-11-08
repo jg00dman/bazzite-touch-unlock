@@ -9,13 +9,17 @@ BUFFYBOX_REPO="${BUFFYBOX_REPO:-https://gitlab.nura.eco/postmarketOS/buffybox.gi
 BUFFYBOX_REF="${BUFFYBOX_REF:-}"
 
 dnf -y install \
-    git rpm-build tar gzip meson ninja-build gcc pkgconf-pkg-config \
+    git patch rpm-build tar gzip meson ninja-build gcc pkgconf-pkg-config \
     libinput-devel libxkbcommon-devel systemd systemd-devel inih-devel \
     libdrm-devel scdoc
 
 work="$(mktemp -d)"
 cd "$work"
 
+# The downstream patches are written against 3.6.0; pin it unless told otherwise.
+if [[ -z "$BUFFYBOX_REF" && "${PATCHES:-1}" != "0" ]]; then
+    BUFFYBOX_REF="3.6.0"
+fi
 if [[ -z "$BUFFYBOX_REF" ]]; then
     BUFFYBOX_REF="$(git ls-remote --tags --refs "$BUFFYBOX_REPO" \
         | awk -F/ '{print $NF}' \
@@ -34,6 +38,16 @@ if [[ ! -f buffybox/unl0kr/unl0kr-agent.c ]]; then
     exit 1
 fi
 
+PATCHES="${PATCHES:-1}"
+extra_defines=()
+if [[ "$PATCHES" != "0" ]]; then
+    for p in "$SRC"/patches/*.patch; do
+        echo "Applying $(basename "$p")"
+        patch -d buffybox -p1 --forward -s < "$p"
+    done
+    extra_defines=(--define "release_tag deck")
+fi
+
 version="${BUFFYBOX_REF#v}"
 topdir="$work/rpmbuild"
 mkdir -p "$topdir/SOURCES"
@@ -47,7 +61,8 @@ tar -czf "$topdir/SOURCES/bazzite-touch-unlock-extra.tar.gz" extra
 
 rpmbuild -bb "$SRC/packaging/unl0kr-bazzite.spec" \
     --define "_topdir $topdir" \
-    --define "upstream_version $version"
+    --define "upstream_version $version" \
+    "${extra_defines[@]}"
 
 mkdir -p "$SRC/dist" "$SRC/dist/deps"
 cp "$topdir"/RPMS/*/*.rpm "$SRC/dist/"

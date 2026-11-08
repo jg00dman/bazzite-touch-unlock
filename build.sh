@@ -7,6 +7,7 @@
 #   BUFFYBOX_REF     upstream git tag to build (default: newest release tag)
 #   BUFFYBOX_REPO    upstream git URL
 #   ENGINE           podman or docker (default: whichever is installed)
+#   PATCHES          0 to build upstream without the downstream patches
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,7 +32,7 @@ echo "Building unl0kr for Fedora $FEDORA_VERSION using $ENGINE ..."
 
 "$ENGINE" run --rm \
     -v "$here:/src:Z" \
-    -e BUFFYBOX_REPO -e BUFFYBOX_REF -e SRC=/src \
+    -e BUFFYBOX_REPO -e BUFFYBOX_REF -e SRC=/src -e PATCHES="${PATCHES:-1}" \
     "registry.fedoraproject.org/fedora:${FEDORA_VERSION}" \
     bash /src/scripts/container-build.sh
 
