@@ -12,8 +12,10 @@ patches by erdii for screen and trackpad orientation on the Deck; see
 [patches/](patches/README.md). These are not submitted upstream. Build with
 `PATCHES=0 ./build.sh` for unmodified upstream.
 
-> **Status: proof of concept, not yet tested on hardware.** Read the whole
-> README and keep a USB keyboard nearby the first time.
+> **Status: working on one Steam Deck** (Bazzite Deck stable 45.20261105,
+> kernel 7.2.15, unl0kr 3.6.0 with the patches): boots with the splash,
+> unlocks by touch in the correct orientation. Tested with the Deck undocked.
+> Keep a USB keyboard nearby the first time.
 
 ## How it works
 

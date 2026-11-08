@@ -31,11 +31,12 @@ TPM one, which layers unl0kr and a dracut module and disables Plymouth.
 setup/uninstall scripts for rpm-ostree. It optionally carries erdii's
 downstream orientation patches for the Deck's sideways panel.
 
-Tested on: [device, Bazzite version, image]
-- Touch input: [works / doesn't]
+Tested on: Steam Deck [LCD/OLED], bazzite-deck:stable 45.20261105, kernel 7.2.15
+- Boot unlock by touch: works, correct orientation (with erdii's patches)
+- Unpatched upstream: works, but portrait and trackpad axes wrong
 - Right trackpad as pointer (lizard mode): [ ]
-- Orientation: [portrait / landscape; usable as-is?]
-- Updates still boot: [ ]
+- External monitor connected: on-screen keyboard didn't appear (VT test)
+- Updates still boot: [not yet tested]
 
 [photo or video of unlocking]
 
