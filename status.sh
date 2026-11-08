@@ -70,3 +70,4 @@ if [[ $ok -eq 1 ]]; then
 else
     echo "Touch unlock: needs attention (see ! above)."
 fi
+exit $((1 - ok))

@@ -82,6 +82,19 @@ Nothing needs re-applying after normal updates: the package stays layered and
 Bazzite rebuilds the boot image with the on-screen keyboard included each
 time. Updates take a few minutes longer because of that rebuild.
 
+**The easy way: `./update.sh`.** It checks touch unlock is set up, installs
+the system update (swapping in a matching build if Bazzite moves to a new
+Fedora version), and checks the staged update keeps touch unlock, discarding
+it if not. Then reboot undocked and run `./status.sh`. It updates the system
+image only; apps from Bazaar/Flatpak update separately. (The Fedora-version
+swap hasn't been exercised yet, as Bazzite is still on Fedora 45.)
+
+```
+cd ~/bazzite-touch-unlock && git pull && ./update.sh
+```
+
+Or update the usual way and check by hand:
+
 - **Bazzite Deck images don't update automatically.** Update when it suits
   you, from Gaming Mode (Steam menu, Settings, System, Check for updates) or
   with `ujust update` in Konsole. Desktop Bazzite images update automatically
