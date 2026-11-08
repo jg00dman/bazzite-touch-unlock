@@ -7,9 +7,8 @@
 # What it changes (all reversible with ./uninstall.sh):
 #   - pins your current deployment so it stays in the boot menu as a fallback
 #   - layers the unl0kr-bazzite RPM
-#   - /etc/dracut.conf.d/90-bazzite-touch-unlock.conf (add unl0kr, drop plymouth)
+#   - /etc/dracut.conf.d/90-bazzite-touch-unlock.conf (adds the unl0kr module)
 #   - enables local initramfs regeneration
-#   - kernel args: rd.plymouth=0 plymouth.enable=0
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -82,7 +81,6 @@ mkdir -p /etc/dracut.conf.d
 cat > "$dracut_conf" <<'EOF'
 # Managed by bazzite-touch-unlock. Remove with uninstall.sh.
 add_dracutmodules+=" unl0kr "
-omit_dracutmodules+=" plymouth "
 EOF
 
 echo "==> Layering $(basename "$rpm_file")"
@@ -97,9 +95,11 @@ if [[ "$initramfs_was_enabled" != "yes" ]]; then
     rpm-ostree initramfs --enable
 fi
 
-echo "==> Setting kernel arguments"
-kargs=(--append-if-missing=rd.plymouth=0 --append-if-missing=plymouth.enable=0)
-rpm-ostree kargs "${kargs[@]}"
+# Earlier versions turned Plymouth off; undo that if present.
+if rpm-ostree kargs | grep -qwE 'rd.plymouth=0|plymouth.enable=0'; then
+    echo "==> Removing old Plymouth kernel arguments"
+    rpm-ostree kargs --delete-if-present=rd.plymouth=0 --delete-if-present=plymouth.enable=0
+fi
 
 cat <<'EOF'
 

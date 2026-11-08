@@ -28,6 +28,10 @@ jobs:
         env:
           SRC: ${{ github.workspace }}
         run: bash scripts/container-build.sh
+      - name: Check initramfs contents
+        env:
+          SRC: ${{ github.workspace }}
+        run: bash scripts/check-initramfs.sh
       - uses: actions/upload-artifact@v4
         with:
           name: rpms-fedora-${{ matrix.fedora }}

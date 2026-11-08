@@ -51,6 +51,12 @@ DESTDIR=%{buildroot} meson install -C _build --tags=unl0kr
 
 install -Dm0755 extra/dracut/90unl0kr/module-setup.sh \
     %{buildroot}%{_prefix}/lib/dracut/modules.d/90unl0kr/module-setup.sh
+install -Dm0755 extra/dracut/90unl0kr/unl0kr-wait-drm \
+    %{buildroot}%{_prefix}/lib/dracut/modules.d/90unl0kr/unl0kr-wait-drm
+for f in unl0kr-agent.path.conf unl0kr-agent.service.conf systemd-ask-password-plymouth.path.conf; do
+    install -Dm0644 extra/dracut/90unl0kr/$f \
+        %{buildroot}%{_prefix}/lib/dracut/modules.d/90unl0kr/$f
+done
 install -Dm0644 extra/conf/50-handheld.conf \
     %{buildroot}%{_datadir}/unl0kr/unl0kr.conf.d/50-handheld.conf
 

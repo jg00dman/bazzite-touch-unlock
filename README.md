@@ -24,8 +24,9 @@ Plymouth answers, with no on-screen keyboard. This setup:
 1. builds unl0kr (and its systemd password agent) from upstream into an RPM;
 2. adds a dracut module that puts unl0kr, the touchscreen and Deck controller
    drivers, and handheld defaults into the initramfs;
-3. removes Plymouth from the initramfs and boot, since unl0kr's agent only
-   runs when Plymouth isn't.
+3. keeps Plymouth for the boot splash, but stops it asking for the
+   passphrase; unl0kr waits for the Deck's GPU driver, borrows the display
+   from Plymouth while asking, then hands it back (approach from erdii).
 
 On the Deck, with Steam not yet running, the controller is in "lizard mode":
 the right trackpad moves a pointer, the triggers click, and A is Enter.
@@ -95,6 +96,9 @@ makes updates a little slower.
 - unl0kr / BuffyBox: GPL-3.0-or-later, by the BuffyBox contributors. This
   repo downloads and builds it, applying the downstream patches credited in
   [patches/README.md](patches/README.md).
+- The Plymouth hand-over and GPU wait in `dracut/90unl0kr/` come from
+  [erdii/bazzite-playground](https://github.com/erdii/bazzite-playground)
+  (Apache-2.0), as marked in each file.
 - The scripts in this repo were written with AI assistance (Claude) and
   reviewed by the maintainer. **No AI-generated contributions have been or
   will be sent to postmarketOS**, which forbids them; this project only

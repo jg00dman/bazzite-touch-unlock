@@ -1,6 +1,8 @@
 #!/usr/bin/bash
 # dracut module: use upstream unl0kr as the systemd password agent in the
-# initramfs, so LUKS passphrases can be entered by touch or pointer.
+# initramfs, so LUKS passphrases can be entered by touch, pointer or keyboard.
+# Plymouth stays for the splash; unl0kr borrows the display while asking.
+# The Plymouth/DRM hand-over approach is from erdii/bazzite-playground.
 # Only included when explicitly requested (add_dracutmodules+=" unl0kr ").
 
 _unl0kr_agent() {
@@ -18,26 +20,22 @@ check() {
 }
 
 depends() {
-    # drm: display drivers are normally pulled in by plymouth, which we omit.
     echo systemd drm
     return 0
 }
 
 installkernel() {
-    # Input stack, Steam Deck controller (lizard mode = mouse/keys),
-    # and common touchscreen paths (the Deck's is I2C HID multitouch).
-    instmods evdev hid-generic usbhid hid-steam hid-multitouch \
+    # Display (Steam Deck: amdgpu), input stack, Deck controller (lizard
+    # mode), and common touchscreen paths (the Deck's is I2C HID multitouch).
+    instmods amdgpu evdev hid-generic usbhid hid-steam hid-multitouch \
         i2c-hid i2c-hid-acpi
     instmods =drivers/input/touchscreen
 }
 
 install() {
-    local real agent unit f
-    real="$(command -v unl0kr)"
-    agent="$(_unl0kr_agent)"
-
-    inst_binary "$real"
-    inst_binary "$agent"
+    local unit f
+    inst_binary "$(command -v unl0kr)"
+    inst_binary "$(_unl0kr_agent)"
 
     for unit in unl0kr-agent.path unl0kr-agent.service; do
         inst_simple "$systemdsystemunitdir/$unit"
@@ -45,6 +43,16 @@ install() {
     mkdir -p "$initdir$systemdsystemunitdir/sysinit.target.wants"
     ln_r "$systemdsystemunitdir/unl0kr-agent.path" \
         "$systemdsystemunitdir/sysinit.target.wants/unl0kr-agent.path"
+
+    # Wait for the real GPU driver, and hand the display over from plymouth.
+    inst_script "$moddir/unl0kr-wait-drm" /usr/libexec/unl0kr-wait-drm
+    inst_multiple sh cat sleep readlink timeout kill
+    inst_simple "$moddir/unl0kr-agent.path.conf" \
+        "$systemdsystemunitdir/unl0kr-agent.path.d/10-bazzite-touch-unlock.conf"
+    inst_simple "$moddir/unl0kr-agent.service.conf" \
+        "$systemdsystemunitdir/unl0kr-agent.service.d/10-bazzite-touch-unlock.conf"
+    inst_simple "$moddir/systemd-ask-password-plymouth.path.conf" \
+        "$systemdsystemunitdir/systemd-ask-password-plymouth.path.d/10-bazzite-touch-unlock.conf"
 
     # Config: upstream defaults, our handheld defaults, user overrides.
     for f in /usr/share/unl0kr/unl0kr.conf /usr/share/unl0kr/unl0kr.conf.d/* \
@@ -56,9 +64,4 @@ install() {
     inst_multiple -o /usr/lib/udev/hwdb.bin /etc/udev/hwdb.bin
     while IFS= read -r f; do inst_simple "$f"; done \
         < <(find /usr/share/libinput /usr/share/X11/xkb -type f 2>/dev/null)
-
-    # Only one agent should own the screen.
-    $SYSTEMCTL -q --root "$initdir" mask \
-        systemd-ask-password-console.path systemd-ask-password-console.service \
-        systemd-ask-password-plymouth.path systemd-ask-password-plymouth.service || :
 }
