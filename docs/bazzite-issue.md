@@ -33,7 +33,7 @@ setup/uninstall scripts for rpm-ostree.
 Tested on: [device, Bazzite version, image]
 - Touch input: [works / doesn't]
 - Right trackpad as pointer (lizard mode): [ ]
-- Orientation: [automatic / needed unl0kr.rotate=N]
+- Orientation: [portrait / landscape; usable as-is?]
 - Updates still boot: [ ]
 
 [photo or video of unlocking]

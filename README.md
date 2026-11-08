@@ -39,10 +39,9 @@ All from Desktop Mode, in Konsole, in this folder.
    internet. Output goes to `dist/`.
 3. **Test without touching boot:** quit Steam, then `sudo ./test-on-vt.sh`  
    unl0kr opens on a spare console. Check touch, the trackpad pointer,
-   trigger clicks, the d-pad and the A button, and whether it's the right way
-   up (if not, try `ROTATE=1 sudo ./test-on-vt.sh`, and 2, 3). Type dummy text
-   and press Enter to come back.
-4. **Install:** `sudo ./setup.sh` (add `--rotate N` if step 3 needed one)
+   trigger clicks, the d-pad and the A button, and which way up it draws.
+   Type dummy text and press Enter to come back.
+4. **Install:** `sudo ./setup.sh`
 5. **Reboot** and unlock on screen.
 
 ### If it goes wrong
@@ -61,9 +60,11 @@ Defaults are in `conf/50-handheld.conf`.
 
 These are what hardware testing needs to answer:
 
-- orientation: the Deck panel is natively portrait, and upstream unl0kr's DRM
-  backend (the only one Bazzite's kernel supports) may not rotate, so expect a
-  portrait-shaped screen; touch should still line up;
+- orientation: the Deck panel is natively portrait and unl0kr 3.6.0 has no
+  rotation option for its DRM backend (the only one Bazzite's kernel supports),
+  so expect a portrait screen; touch should still line up;
+- unl0kr opens the first `/dev/dri/card*` it finds, which may not be the
+  amdgpu card early in boot;
 - whether upstream detects the Deck controller (a combined keyboard + touchpad
   device) correctly;
 - whether the d-pad moves around the on-screen keyboard (touch and trackpad

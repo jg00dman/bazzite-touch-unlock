@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install unl0kr as the LUKS unlock screen on Bazzite (rpm-ostree).
 #
-#   sudo ./setup.sh [--rpm PATH] [--rotate 0-3] [--yes]
+#   sudo ./setup.sh [--rpm PATH] [--yes]
 #   sudo ./setup.sh --regenerate      # rebuild initramfs after config changes
 #
 # What it changes (all reversible with ./uninstall.sh):
@@ -9,7 +9,7 @@
 #   - layers the unl0kr-bazzite RPM
 #   - /etc/dracut.conf.d/90-bazzite-touch-unlock.conf (add unl0kr, drop plymouth)
 #   - enables local initramfs regeneration
-#   - kernel args: rd.plymouth=0 plymouth.enable=0 [unl0kr.rotate=N]
+#   - kernel args: rd.plymouth=0 plymouth.enable=0
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -17,11 +17,10 @@ state_dir=/etc/bazzite-touch-unlock
 state_file="$state_dir/state"
 dracut_conf=/etc/dracut.conf.d/90-bazzite-touch-unlock.conf
 
-rpm_file=""; rotate=""; assume_yes=0; regenerate=0
+rpm_file=""; assume_yes=0; regenerate=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --rpm) rpm_file="$2"; shift 2 ;;
-        --rotate) rotate="$2"; shift 2 ;;
         --yes|-y) assume_yes=1; shift ;;
         --regenerate) regenerate=1; shift ;;
         -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
@@ -42,7 +41,6 @@ if [[ $regenerate -eq 1 ]]; then
 fi
 
 lsblk -rno TYPE | grep -qx crypt || die "No LUKS-encrypted device found; nothing to unlock."
-[[ -z "$rotate" || "$rotate" =~ ^[0-3]$ ]] || die "--rotate must be 0, 1, 2 or 3."
 
 if [[ -z "$rpm_file" ]]; then
     rpm_file="$(ls "$here"/dist/unl0kr-bazzite-*.rpm 2>/dev/null | grep -v '\.src\.rpm$' | sort -V | tail -n1 || true)"
@@ -62,7 +60,6 @@ cat <<EOF
 
 This will make unl0kr (on-screen keyboard) your disk unlock screen.
   Package:  $(basename "$rpm_file")
-  Rotation: ${rotate:-automatic}
 
 Keep a USB keyboard nearby for the first boot. If the new screen doesn't
 work, pick the previous (pinned) entry in the boot menu, then run
@@ -98,11 +95,6 @@ fi
 
 echo "==> Setting kernel arguments"
 kargs=(--append-if-missing=rd.plymouth=0 --append-if-missing=plymouth.enable=0)
-current_rotate="$(rpm-ostree kargs | tr ' ' '\n' | grep '^unl0kr.rotate=' || true)"
-if [[ -n "$rotate" && "$current_rotate" != "unl0kr.rotate=$rotate" ]]; then
-    [[ -n "$current_rotate" ]] && kargs+=("--delete-if-present=$current_rotate")
-    kargs+=("--append-if-missing=unl0kr.rotate=$rotate")
-fi
 rpm-ostree kargs "${kargs[@]}"
 
 cat <<'EOF'

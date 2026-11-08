@@ -36,10 +36,7 @@ install() {
     real="$(command -v unl0kr)"
     agent="$(_unl0kr_agent)"
 
-    # Real binary moves aside; a small wrapper takes its place to pass the
-    # display rotation (the Deck panel is natively portrait).
-    inst_binary "$real" /usr/libexec/unl0kr-bin
-    inst_script "$moddir/unl0kr-wrapper.sh" "$real"
+    inst_binary "$real"
     inst_binary "$agent"
 
     for unit in unl0kr-agent.path unl0kr-agent.service; do

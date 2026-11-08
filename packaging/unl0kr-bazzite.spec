@@ -51,8 +51,6 @@ DESTDIR=%{buildroot} meson install -C _build --tags=unl0kr
 
 install -Dm0755 extra/dracut/90unl0kr/module-setup.sh \
     %{buildroot}%{_prefix}/lib/dracut/modules.d/90unl0kr/module-setup.sh
-install -Dm0755 extra/dracut/90unl0kr/unl0kr-wrapper.sh \
-    %{buildroot}%{_prefix}/lib/dracut/modules.d/90unl0kr/unl0kr-wrapper.sh
 install -Dm0644 extra/conf/50-handheld.conf \
     %{buildroot}%{_datadir}/unl0kr/unl0kr.conf.d/50-handheld.conf
 
