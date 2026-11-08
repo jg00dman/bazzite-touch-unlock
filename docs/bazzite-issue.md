@@ -1,49 +1,37 @@
-<!-- Draft for a GitHub issue on ublue-os/bazzite. Fill in the [brackets]
-     after testing on hardware, and check their contribution guidelines first. -->
+<!-- Comment for the existing Bazzite feature request:
+     https://github.com/ublue-os/bazzite/issues/5842
+     Fill in the [brackets] before posting. -->
 
-**Title:** LUKS unlock needs a keyboard on handhelds — on-screen unlock via unl0kr
+I've got this working on a Steam Deck on stock Bazzite, in case it helps move
+this forward.
 
-### Problem
+**Setup:** Steam Deck [LCD/OLED], bazzite-deck:stable 45.20261105, kernel 7.2.15.
+Upstream unl0kr (BuffyBox 3.6.0) as the systemd password agent in the
+initramfs, layered with rpm-ostree plus local initramfs regeneration, so no
+custom image: https://github.com/jg00dman/bazzite-touch-unlock
 
-Bazzite supports installing with full disk encryption, but on handhelds the
-boot passphrase prompt (Plymouth) can only be used with a physical keyboard.
-On a Steam Deck that means carrying a USB keyboard to boot your own device.
-The remaining option, `ujust setup-luks-tpm-unlock`, warns against use on
-Zen2/Zen3 because of faulTPM, and the Deck is Zen2; with Gaming Mode
-auto-login, TPM-only unlock also leaves a stolen device fully usable.
+**Results:**
+- Boot: Plymouth splash shows, unl0kr takes over the display, LUKS unlocks by
+  touch, and boot continues normally.
+- Orientation: plain upstream unl0kr draws in the Deck panel's native portrait
+  orientation (touch still lines up). Correct orientation needed downstream
+  patches by erdii (https://github.com/erdii/bazzite-playground), which also
+  provides the Plymouth hand-over and an amdgpu wait that made it reliable.
+- An external monitor connected stops the keyboard appearing; fine undocked.
+- Removing Plymouth and masking the other password agents gave a blank boot
+  with no prompt. Keeping Plymouth and borrowing the display works.
 
-So portable devices, the ones most likely to be lost or stolen, have no
-practical encryption option.
+**Related work:** jaredbartimus maintains Fedora 44 packaging of unl0kr aimed
+at the ROG Ally X (https://github.com/jaredbartimus/buffybox-unl0kr-fedora),
+and erdii has a full Bazzite Deck image with it. So three people have
+independently needed this.
 
-### Proposal
+**Suggestion:** an opt-in `ujust setup-luks-touch-unlock`, alongside the
+existing `ujust setup-luks-tpm-unlock`, would make encryption practical on
+handhelds. That matters because TPM-only unlock is discouraged on the Deck's
+Zen 2 chip (faulTPM), and Gaming Mode auto-login means a stolen Deck with TPM
+unlock is fully usable. The main per-device work is display rotation and
+touch drivers.
 
-Offer an opt-in on-screen unlock screen using
-[unl0kr](https://gitlab.postmarketos.org/postmarketOS/buffybox) (postmarketOS
-BuffyBox, GPL-3.0+), which already ships a systemd password agent and is
-used this way by NixOS (`boot.initrd.unl0kr`) and Arch (`sd-unl0kr`).
-
-For example a `ujust setup-luks-touch-unlock` command, matching the existing
-TPM one, which layers unl0kr and a dracut module and disables Plymouth.
-
-### Proof of concept
-
-[link to repo] packages upstream unl0kr with a dracut module and
-setup/uninstall scripts for rpm-ostree. It optionally carries erdii's
-downstream orientation patches for the Deck's sideways panel.
-
-Tested on: Steam Deck [LCD/OLED], bazzite-deck:stable 45.20261105, kernel 7.2.15
-- Boot unlock by touch: works, correct orientation (with erdii's patches)
-- Unpatched upstream: works, but portrait and trackpad axes wrong
-- Right trackpad as pointer (lizard mode): [ ]
-- External monitor connected: on-screen keyboard didn't appear (VT test)
-- Updates still boot: [not yet tested]
-
-[photo or video of unlocking]
-
-### Notes
-
-- Trade-off: no boot splash while unl0kr is enabled, hence opt-in.
-- Per-device questions are mainly rotation and touch drivers.
-- Disclosure: the PoC scripts were written with AI assistance and tested by
-  me. Nothing has been submitted to postmarketOS, whose policy forbids AI
-  contributions; the proposal only uses their released code.
+Happy to test on the Deck. Disclosure: my repo's scripts were written with AI
+assistance and tested by me; unl0kr and erdii's patches are their authors' work.
