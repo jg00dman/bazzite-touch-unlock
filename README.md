@@ -27,6 +27,17 @@ Plymouth answers, with no on-screen keyboard. This setup:
 On the Deck, with Steam not yet running, the controller is in "lizard mode":
 the right trackpad moves a pointer, the triggers click, and A is Enter.
 
+## Quick test (no install, nothing changed)
+
+In Desktop Mode, open Konsole and run:
+
+```
+git clone https://github.com/jg00dman/bazzite-touch-unlock ~/bazzite-touch-unlock && ~/bazzite-touch-unlock/quick-test.sh
+```
+
+It downloads the latest build for your Bazzite version and opens unl0kr on a
+spare screen. Type anything and press Enter (or wait two minutes) to return.
+
 ## Steps
 
 All from Desktop Mode, in Konsole, in this folder.
