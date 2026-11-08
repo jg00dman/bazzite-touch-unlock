@@ -1,100 +1,145 @@
 # bazzite-touch-unlock
 
 Unlock a LUKS-encrypted Bazzite handheld (e.g. Steam Deck) **without a USB
-keyboard**: an on-screen keyboard you can use by touch, or with the Deck's
-right trackpad as a pointer.
+keyboard**: the boot passphrase screen gets an on-screen keyboard you use by
+touch.
 
-This repo writes no unlock code of its own. It packages
-[unl0kr](https://gitlab.nura.eco/postmarketOS/buffybox) from the BuffyBox
-project (postmarketOS, now Nura) and wires it into Bazzite's initramfs in place
-of the Plymouth password prompt. By default it applies four small downstream
-patches by erdii for screen and trackpad orientation on the Deck; see
-[patches/](patches/README.md). These are not submitted upstream. Build with
-`PATCHES=0 ./build.sh` for unmodified upstream.
+- **Works on stock Bazzite.** No custom image or rebase: one small package is
+  layered onto your normal Bazzite, and `uninstall.sh` removes it again. You
+  keep getting Bazzite's normal updates.
+- **Uses existing open source.** The on-screen keyboard is
+  [unl0kr](https://gitlab.nura.eco/postmarketOS/buffybox) from BuffyBox
+  (postmarketOS, now Nura). For the Deck's sideways screen this repo applies
+  four downstream patches by erdii (see [patches/](patches/README.md)); they
+  are not submitted upstream.
 
-> **Status: working on one Steam Deck** (Bazzite Deck stable 45.20261105,
-> kernel 7.2.15, unl0kr 3.6.0 with the patches): boots with the splash,
-> unlocks by touch in the correct orientation. Tested with the Deck undocked.
-> Keep a USB keyboard nearby the first time.
+> **Status: working on a Steam Deck** (bazzite-deck:stable 45.20261105,
+> kernel 7.2.15, unl0kr 3.6.0 with the patches): boots with the splash and
+> unlocks by touch in the correct orientation. Not yet tested across a Bazzite
+> update or on other handhelds. Please report results in an issue.
 
-## How it works
+## Before you start
 
-At boot, `systemd-cryptsetup` asks for your passphrase through systemd's
-[password agent](https://systemd.io/PASSWORD_AGENTS/) mechanism. Normally
-Plymouth answers, with no on-screen keyboard. This setup:
+You need:
 
-1. builds unl0kr (and its systemd password agent) from upstream into an RPM;
-2. adds a dracut module that puts unl0kr, the touchscreen and Deck controller
-   drivers, and handheld defaults into the initramfs;
-3. keeps Plymouth for the boot splash, but stops it asking for the
-   passphrase; unl0kr waits for the Deck's GPU driver, borrows the display
-   from Plymouth while asking, then hands it back (approach from erdii).
+- Bazzite installed with disk encryption (LUKS), on a handheld with a
+  touchscreen;
+- a USB keyboard for the first boot, in case something goes wrong;
+- the Deck **undocked, with no external monitor**: with one connected, the
+  keyboard currently doesn't appear;
+- your user's sudo password (run `passwd` in Konsole if you've never set one).
 
-On the Deck, with Steam not yet running, the controller is in "lizard mode":
-the right trackpad moves a pointer, the triggers click, and A is Enter.
+All commands are run in Desktop Mode, in Konsole.
 
-## Quick test (no install, nothing changed)
+## 1. Test it (installs nothing)
 
-In Desktop Mode, open Konsole and run:
+Quit Steam first (it stops the trackpad acting as a mouse), then:
 
 ```
 git clone https://github.com/jg00dman/bazzite-touch-unlock ~/bazzite-touch-unlock && ~/bazzite-touch-unlock/quick-test.sh
 ```
 
-It downloads the latest build for your Bazzite version and opens unl0kr on a
-spare screen. Type anything and press Enter (or wait two minutes) to return.
+This downloads the build for your Bazzite version and opens the unlock screen
+on a spare console. Your desktop's keyboard and mouse stop working while it's
+open: type anything **on the on-screen keyboard by touch** and press its
+Enter key to return, or wait two minutes and it closes by itself.
 
-## Steps
+If the keyboard doesn't appear, don't install. Open an issue instead.
 
-All from Desktop Mode, in Konsole, in this folder.
+## 2. Install
 
-1. **Optional but recommended: add a second way in first.** For example a
-   FIDO2 security key (`systemd-cryptenroll --fido2-device=auto
-   --fido2-with-client-pin=no`). Keep your passphrase slot.
-2. **Build:** `./build.sh`  
-   Builds in a Fedora container matching your Bazzite release; needs
-   internet. Output goes to `dist/`.
-3. **Test without touching boot:** quit Steam, then `sudo ./test-on-vt.sh`  
-   unl0kr opens on a spare console. Check touch, the trackpad pointer,
-   trigger clicks, the d-pad and the A button, and which way up it draws.
-   Type dummy text and press Enter to come back.
-4. **Install:** `sudo ./setup.sh`
-5. **Reboot** and unlock on screen.
+```
+cd ~/bazzite-touch-unlock && sudo ./setup.sh
+```
 
-### If it goes wrong
+Setup pins your current system as a fallback, layers the package and turns on
+local boot-image rebuilding. Then reboot. After the splash appears, the
+on-screen keyboard should show within about 15 seconds.
 
-- Plug in the USB keyboard: unl0kr accepts hardware keyboards too.
-- Or pick the previous entry in the boot menu (setup pins it, so it stays).
-  Bazzite hides the menu; with a USB keyboard attached, press Esc during boot.
-- Once booted: `sudo ./uninstall.sh`, then reboot.
+## 3. Pin the working system
 
-### Changing settings
+Once you've unlocked by touch:
 
-Put overrides in `/etc/unl0kr.conf.d/`, then `sudo ./setup.sh --regenerate` and reboot.
-Defaults are in `conf/50-handheld.conf`.
+```
+sudo ostree admin pin 0
+```
 
-## Known unknowns
+This keeps a keyboard-free system in the boot menu permanently, whatever
+future updates do.
 
-- with an external monitor connected, the patched build showed nothing at
-  all in testing; unplug it to test and to boot (cause not yet known);
+## If the boot goes wrong
 
-These are what hardware testing needs to answer:
+1. Plug in the USB keyboard. If the on-screen keyboard is there but touch
+   isn't working, type your passphrase on the USB keyboard instead.
+2. Otherwise restart and tap **Esc** as the Steam Deck logo disappears to get
+   the boot menu, choose the **second** entry, and unlock as before.
+3. Make that working system the default again: `sudo rpm-ostree rollback`
+4. Optionally remove everything: `sudo ./uninstall.sh`, then reboot.
 
-- whether the orientation patches rotate the screen, touch and trackpad
-  correctly on real hardware (unpatched: portrait screen, touch fine,
-  trackpad axes wrong);
-- unl0kr opens the first `/dev/dri/card*` it finds, which may not be the
-  amdgpu card early in boot;
-- whether the d-pad moves around the on-screen keyboard (touch and trackpad
-  are the controls this setup relies on; unl0kr isn't patched either way);
-- that the dracut module finds unl0kr's agent and units where the upstream
-  release installs them.
+## Updates
 
-## What it changes
+Nothing needs re-applying after normal updates: the package stays layered and
+Bazzite rebuilds the boot image with the on-screen keyboard included each
+time. Updates take a few minutes longer because of that rebuild.
 
-Listed at the top of `setup.sh`; all reversed by `uninstall.sh`. Updates keep
-working: rpm-ostree rebuilds the initramfs with unl0kr on every update, which
-makes updates a little slower.
+- **Bazzite Deck images don't update automatically.** Update when it suits
+  you, from Gaming Mode (Steam menu, Settings, System, Check for updates) or
+  with `ujust update` in Konsole. Desktop Bazzite images update automatically
+  and apply on the next reboot.
+- **Update at home**, where your USB keyboard is, and reboot straight after,
+  undocked, to check the touch unlock still appears. Then `./status.sh`
+  confirms everything is still in place.
+- **When it works,** pin the new system (`sudo ostree admin pin 0`) and unpin
+  older ones you no longer need. `rpm-ostree status` lists them;
+  `sudo ostree admin pin --unpin N` unpins entry N.
+- **If an update breaks the unlock,** boot the pinned entry (see above) and
+  open an issue.
+
+### When Bazzite moves to a new Fedora version
+
+Each build is made for one Fedora version (Bazzite 45 is Fedora 45). When
+Bazzite moves to the next one, the old package may stop the update from
+installing, or `./status.sh` will warn about a mismatch. Then get a matching
+build and re-run setup, which replaces the old package:
+
+```
+cd ~/bazzite-touch-unlock && git pull && ./quick-test.sh && sudo ./setup.sh
+```
+
+If no build exists yet for the new version, `./build.sh` makes one locally.
+
+## Other options
+
+- **Settings:** put overrides in `/etc/unl0kr.conf.d/` (defaults in
+  `conf/50-handheld.conf`), then `sudo ./setup.sh --regenerate` and reboot.
+- **Build it yourself:** `./build.sh` builds in a Fedora container matching
+  your Bazzite and writes the package to `dist/`; then `sudo ./test-on-vt.sh`
+  tests it. `PATCHES=0` builds plain upstream unl0kr (portrait screen,
+  trackpad axes swapped, touch fine).
+- **A second way in:** a FIDO2 security key can unlock the disk with a touch
+  (`systemd-cryptenroll --fido2-device=auto --fido2-with-client-pin=no`).
+  Keep your passphrase too.
+
+## How it works
+
+At boot, `systemd-cryptsetup` asks for your passphrase through systemd's
+[password agent](https://systemd.io/PASSWORD_AGENTS/) mechanism. Normally
+Plymouth answers, with no on-screen keyboard. This repo:
+
+1. builds unl0kr and its systemd password agent into an RPM;
+2. adds a dracut module that puts unl0kr, the touchscreen, GPU and Deck
+   controller drivers, and handheld defaults into the boot image;
+3. keeps Plymouth for the splash but stops it asking; unl0kr waits for the
+   Deck's GPU driver, borrows the display while asking, then hands it back
+   (approach from erdii).
+
+`setup.sh` lists what it changes at the top; `uninstall.sh` reverses it.
+
+## Known issues
+
+- With an external monitor connected, the keyboard doesn't appear.
+- Untested: whether the d-pad navigates the keyboard. Touch is the supported control.
+- Only tested on one Steam Deck so far.
 
 ## Licensing and credits
 
@@ -104,7 +149,9 @@ makes updates a little slower.
 - The Plymouth hand-over and GPU wait in `dracut/90unl0kr/` come from
   [erdii/bazzite-playground](https://github.com/erdii/bazzite-playground)
   (Apache-2.0), as marked in each file.
+- The Fedora packaging approach follows
+  [jaredbartimus/buffybox-unl0kr-fedora](https://github.com/jaredbartimus/buffybox-unl0kr-fedora).
 - The scripts in this repo were written with AI assistance (Claude) and
   reviewed by the maintainer. **No AI-generated contributions have been or
-  will be sent to postmarketOS**, which forbids them; this project only
+  will be sent to postmarketOS/Nura**, which forbids them; this project only
   consumes their release.
