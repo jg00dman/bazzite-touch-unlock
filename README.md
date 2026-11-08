@@ -73,6 +73,9 @@ Defaults are in `conf/50-handheld.conf`.
 
 ## Known unknowns
 
+- with an external monitor connected, the patched build showed nothing at
+  all in testing; unplug it to test and to boot (cause not yet known);
+
 These are what hardware testing needs to answer:
 
 - whether the orientation patches rotate the screen, touch and trackpad
