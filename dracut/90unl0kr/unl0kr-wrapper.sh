@@ -1,7 +1,9 @@
 #!/bin/bash
-# Installed in the initramfs in place of unl0kr. Passes a rotation to the real
-# binary: kernel argument unl0kr.rotate=0..3 wins, otherwise the console's
-# current rotation (/sys/class/graphics/fbcon/rotate) is used.
+# Installed in the initramfs in place of unl0kr. If the kernel argument
+# unl0kr.rotate=0..3 is set, it is passed to the real binary as -r.
+# (Upstream unl0kr's DRM backend may not support rotation; without it the
+# UI is drawn in the panel's native orientation, which on the Steam Deck is
+# portrait. Touch input stays aligned either way.)
 rot=""
 read -r cmdline < /proc/cmdline
 for arg in $cmdline; do
@@ -9,9 +11,6 @@ for arg in $cmdline; do
         unl0kr.rotate=*) rot="${arg#unl0kr.rotate=}" ;;
     esac
 done
-if [[ -z "$rot" && -r /sys/class/graphics/fbcon/rotate ]]; then
-    read -r rot < /sys/class/graphics/fbcon/rotate
-fi
 case "$rot" in
     [0-3]) exec /usr/libexec/unl0kr-bin -r "$rot" "$@" ;;
 esac

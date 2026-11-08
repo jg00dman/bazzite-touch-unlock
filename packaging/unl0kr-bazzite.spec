@@ -42,7 +42,8 @@ meson setup _build \
     --sysconfdir=%{_sysconfdir} \
     --datadir=%{_datadir} \
     --mandir=%{_mandir} \
-    --buildtype=release
+    --buildtype=release \
+    -Dsystemd=true
 meson compile -C _build
 
 %install
@@ -55,8 +56,7 @@ install -Dm0755 extra/dracut/90unl0kr/unl0kr-wrapper.sh \
 install -Dm0644 extra/conf/50-handheld.conf \
     %{buildroot}%{_datadir}/unl0kr/unl0kr.conf.d/50-handheld.conf
 
-# The password agent is built automatically when systemd is found; fail
-# loudly if upstream stopped installing it.
+# Fail loudly if upstream stopped installing the password agent.
 find %{buildroot} -name 'unl0kr-agent' -type f | grep -q . \
     || { echo "unl0kr-agent was not built/installed" >&2; exit 1; }
 

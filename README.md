@@ -54,19 +54,20 @@ All from Desktop Mode, in Konsole, in this folder.
 
 ### Changing settings
 
-Put overrides in `/etc/unl0kr.conf.d/`, e.g. `backend=drm` under `[general]`
-if the screen stays blank, then `sudo ./setup.sh --regenerate` and reboot.
+Put overrides in `/etc/unl0kr.conf.d/`, then `sudo ./setup.sh --regenerate` and reboot.
 Defaults are in `conf/50-handheld.conf`.
 
 ## Known unknowns
 
 These are what hardware testing needs to answer:
 
-- whether unl0kr shows the right way up on the Deck's portrait panel with
-  automatic rotation;
+- orientation: the Deck panel is natively portrait, and upstream unl0kr's DRM
+  backend (the only one Bazzite's kernel supports) may not rotate, so expect a
+  portrait-shaped screen; touch should still line up;
+- whether upstream detects the Deck controller (a combined keyboard + touchpad
+  device) correctly;
 - whether the d-pad moves around the on-screen keyboard (touch and trackpad
   are the controls this setup relies on; unl0kr isn't patched either way);
-- which display backend (`fbdev` or `drm`) works best;
 - that the dracut module finds unl0kr's agent and units where the upstream
   release installs them.
 

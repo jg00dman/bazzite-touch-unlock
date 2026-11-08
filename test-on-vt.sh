@@ -33,16 +33,17 @@ if ldd "$bin" | grep -q 'not found'; then
     echo "Missing libraries:" >&2; ldd "$bin" | grep 'not found' >&2; exit 1
 fi
 
-rot="$(cat /sys/class/graphics/fbcon/rotate 2>/dev/null || echo 0)"
-rot="${ROTATE:-$rot}"
+rot="${ROTATE:-}"
+rot_args=()
+[[ -n "$rot" ]] && rot_args=(-r "$rot")
 conf="$root/usr/share/unl0kr/unl0kr.conf.d/50-handheld.conf"
 log="$here/dist/test-on-vt.log"
 orig_vt="$(fgconsole 2>/dev/null || echo 1)"
 
-echo "Switching to a spare console now (rotation $rot). Type dummy text, press Enter."
+echo "Switching to a spare console now (rotation: ${rot:-native}). Type dummy text, press Enter."
 sleep 2
 openvt -s -w -- /bin/bash -c \
-    "timeout 120 '$bin' -v -C '$conf' -r '$rot' >'$root/out' 2>'$log'; true"
+    "timeout 120 '$bin' -v -C '$conf' ${rot_args[*]} >'$root/out' 2>'$log'; true"
 chvt "$orig_vt" 2>/dev/null || true
 
 chars="$(tr -d '\n' < "$root/out" 2>/dev/null | wc -c)"
