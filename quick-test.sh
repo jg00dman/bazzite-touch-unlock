@@ -10,7 +10,9 @@ fedora="$(rpm -E %fedora)"
 
 echo "Fetching the latest build for Fedora $fedora ..."
 rm -rf "$here/dist" && mkdir -p "$here/dist/deps"
-urls="$(curl -fsSL "https://api.github.com/repos/$repo/releases/tags/test-build" | python3 -c '
+release_json="$(curl -fsSL "https://api.github.com/repos/$repo/releases/tags/test-build")" \
+    || { echo "Couldn't fetch the test build from GitHub." >&2; exit 1; }
+urls="$(printf '%s' "$release_json" | python3 -c '
 import json, sys
 fed = sys.argv[1]
 for a in json.load(sys.stdin)["assets"]:

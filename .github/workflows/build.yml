@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         # Keep in step with the Fedora releases Bazzite is based on.
-        fedora: ['43', '44']
+        fedora: ['44', '45']
     container:
       image: registry.fedoraproject.org/fedora:${{ matrix.fedora }}
     steps:
